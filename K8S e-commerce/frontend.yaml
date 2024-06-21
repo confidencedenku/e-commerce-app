@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: prinsoo/e-commerce:frontend
+          ports:
+            - containerPort: 3000
+          command: ["./wait-for-it.sh", "database:5432", "--", "yarn", "run:server"]
+          env:
+            - name: DATABASE_HOST
+              value: database
+            - name: DATABASE_PORT
+              value: "5432"
+      restartPolicy: Always
+      volumes:
+        - name: wait-for-it
+          emptyDir: {}
+      initContainers:
+        - name: wait-for-it
+          image: busybox
+          command: ["sh", "-c", "cp /wait-for-it.sh /mnt/wait-for-it.sh"]
+          volumeMounts:
+            - name: wait-for-it
+              mountPath: "/mnt"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  selector:
+    app: frontend
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+  type: NodePort

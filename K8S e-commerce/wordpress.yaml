@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wordpress
+  template:
+    metadata:
+      labels:
+        app: wordpress
+    spec:
+      containers:
+        - name: wordpress
+          image: prinsoo/e-commerce:wordpress
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+          env:
+            - name: MONEI_OPERATION_MODE
+              value: live
+            - name: MONEI_TEST_CHANNEL_ID
+              value: test_channel_id
+            - name: MONEI_TEST_USER_ID
+              value: test_user_id
+            - name: MONEI_TEST_PASSWORD
+              value: test_password
+            - name: MONEI_LIVE_CHANNEL_ID
+              value: live_channel_id
+            - name: MONEI_LIVE_USER_ID
+              value: live_user_id
+            - name: MONEI_LIVE_PASSWORD
+              value: live_password
+            - name: WORDPRESS_DB_HOST
+              value: mariadb:3306
+            - name: WORDPRESS_DB_PASSWORD
+              value: password
+            - name: WORDPRESS_SITE_TITLE
+              value: some_site_title
+            - name: WORDPRESS_ADMIN_PASSWORD
+              value: "1234"
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress
+spec:
+  selector:
+    app: wordpress
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+    - protocol: TCP
+      port: 443
+      targetPort: 443
+  type: ClusterIP

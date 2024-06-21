@@ -1,0 +1,52 @@
+# Use the base image 'wordpress:4.7-php7.1-apache'
+FROM wordpress
+
+# Enable Apache rewrite module
+# RUN a2enmod rewrite
+
+# Update the package repositories and install necessary packages
+RUN apt-get update && \
+    apt-get install apt-utils -y &&\
+    apt-get install -y sudo less && \
+    apt-get install -y libpng-dev libjpeg-dev libxml2-dev && \
+    apt-get install -y libxslt-dev libgraphicsmagick1-dev graphicsmagick && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Configure and install PHP extensions
+
+# docker-php-ext-configure gd --with-freetype --with-jpeg && \
+
+RUN docker-php-ext-install gd mysqli pdo pdo_mysql opcache gettext exif calendar && \
+    docker-php-ext-install soap sockets
+
+# Install and enable PHP extensions using PECL
+# Install APCu and APC backward compatibility
+RUN apt-get update && \
+    pecl install apcu &&\
+    docker-php-ext-enable apcu &&\
+    pecl install gmagick-beta &&\
+    docker-php-ext-enable gmagick
+
+    # && docker-php-ext-enable apcu --ini-name 10-docker-php-ext-apcu.ini \
+    # && pecl install apc \
+    # apt-get install --assume-yes --no-install-recommends --quiet \
+
+
+# Copy rootfs into the root directory
+COPY ./wordpress/* /
+
+# Set up recommended commands
+RUN sudo mv /wp-themes-setup.sh /bin/wp-themes-setup && chmod +x /bin/wp-themes-setup && \
+    curl -o /bin/wp-cli.phar https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && \
+    mv /bin/wp-cli.phar /bin/wp && chmod +x /bin/wp && \
+    { \
+        echo "upload_max_filesize = 25M"; \
+        echo "post_max_size = 50M"; \
+    } > /usr/local/etc/php/conf.d/uploads.ini && \
+    rm -rf /tmp/* /var/tmp/*
+
+# Expose port 80 (HTTP)
+EXPOSE 80
+
+# The WordPress image typically uses CMD ["apache2-foreground"] for the web server, so no need to redefine it here.

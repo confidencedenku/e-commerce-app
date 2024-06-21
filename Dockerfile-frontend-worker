@@ -1,0 +1,11 @@
+FROM node:14
+EXPOSE 3000
+WORKDIR /usr/src/app
+VOLUME /usr/src/app
+RUN apt-get update
+COPY ./yarn/*  ./
+COPY . .
+RUN yarn 
+RUN chmod +x /usr/src/app/wait-for-it.sh
+# Build your application
+RUN yarn build

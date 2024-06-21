@@ -1,0 +1,222 @@
+version: '3.3'
+services:
+  # Frontend service - frontend
+  frontend:
+    image: s6confidence:storefront
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    command: ["./wait-for-it.sh", "database:5432", "--", "yarn", "run:server"]
+    environment:
+      DATABASE_HOST: database
+      DATABASE_PORT: 5432
+    depends_on:
+      - worker
+      - storefront
+      - wordpress
+      - redis-node-1
+    networks:
+      redis-net:
+        aliases:
+          - frontend
+    restart: always  # Add this line to enable automatic restart
+
+  # Frontend service - worker
+  worker:
+    image: s6confidence:frontend-worker
+    container_name: worker
+    command: ["./wait-for-it.sh", "database:5432", "--", "yarn", "run:server"]
+    environment:
+      DATABASE_HOST: database
+      DATABASE_PORT: 5432
+    depends_on:
+      - database
+      - database-replication
+    networks:
+      redis-net:
+        aliases:
+          - worker
+    restart: always  # Add this line to enable automatic restart
+
+  # Storefront service
+  storefront:
+    image: s6confidence:storefront
+    container_name: storefront
+    ports:
+      - "4000:4000"
+    environment:
+      SERVER_API_HOST: http://server
+      SERVER_API_PORT: 3000
+      SERVER_API_PATH: shop-api
+    depends_on:
+      - database
+    networks:
+      redis-net:
+        aliases:
+          - storefront
+    restart: always  # Add this line to enable automatic restart
+
+  # Database service (Postgresql)
+  database:
+    image: postgres
+    container_name: database
+    volumes:
+      - database-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: vendure
+    networks:
+      redis-net:
+        aliases:
+          - database
+    depends_on:
+      - database-replication
+
+  # Database replication service (Postgresql)
+  database-replication:
+    image: postgres
+    container_name: database-replication
+    volumes:
+      - database-replication-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: vendure
+    networks:
+      redis-net:
+        aliases:
+          - database-replication
+    depends_on:
+      - mariadb
+
+  # Mariadb service
+  mariadb:
+    image: mariadb
+    container_name: mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    networks:
+      redis-net:
+        aliases:
+          - mariadb
+
+  # Wordpress service
+  wordpress:
+    container_name: wordpress
+    image: s6confidence:wordpress
+    ports:
+      - "8080:80"
+      - "4443:443"
+    depends_on:
+      - mariadb
+      - database
+      - redis-node-1
+    environment:
+      MONEI_OPERATION_MODE: live
+      MONEI_TEST_CHANNEL_ID: test_channel_id
+      MONEI_TEST_USER_ID: test_user_id
+      MONEI_TEST_PASSWORD: test_password
+      MONEI_LIVE_CHANNEL_ID: live_channel_id
+      MONEI_LIVE_USER_ID: live_user_id
+      MONEI_LIVE_PASSWORD: live_password
+      WORDPRESS_DB_HOST: mariadb:3306
+      WORDPRESS_DB_PASSWORD: password
+      WORDPRESS_SITE_TITLE: some_site_title
+      WORDPRESS_ADMIN_PASSWORD: 1234
+    networks:
+      redis-net:
+        aliases:
+          - wordpress
+
+  # Redis node 1
+  redis-node-1:
+    image: redis:6.0-alpine
+    container_name: redis-node-1
+    command: ["redis-server", "/etc/redis/redis.conf"]
+    volumes:
+      - ./redis-node-1:/etc/redis/redis.conf
+    depends_on:
+      - redis-node-2
+      - redis-node-3
+      - redis-sentinel-1
+      - redis-sentinel-2
+      - redis-sentinel-3
+    networks:
+      redis-net:
+        aliases:
+          - redis-node-1
+
+  # Redis node 2
+  redis-node-2:
+    image: redis:6.0-alpine
+    container_name: redis-node-2
+    command: ["redis-server", "/etc/redis/redis.conf"]
+    volumes:
+      - ./redis-node-2:/etc/redis/redis.conf
+    networks:
+      redis-net:
+        aliases:
+          - redis-node-2
+
+  # Redis node 3
+  redis-node-3:
+    image: redis:6.0-alpine
+    container_name: redis-node-3
+    command: ["redis-server", "/etc/redis/redis.conf"]
+    volumes:
+      - ./redis-node-3:/etc/redis/redis.conf
+    networks:
+      redis-net:
+        aliases:
+          - redis-node-3
+
+  # Redis Sentinel Services
+  redis-sentinel-1:
+    image: redis:6.0-alpine
+    container_name: redis-sentinel-1
+    command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
+    volumes:
+      - ./redis-sentinel-1:/etc/redis/sentinel.conf
+    networks:
+      redis-net:
+        aliases:
+          - redis-sentinel-1
+
+  redis-sentinel-2:
+    image: redis:6.0-alpine
+    container_name: redis-sentinel-2
+    command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
+    volumes:
+      - ./redis-sentinel-2:/etc/redis/sentinel.conf
+    networks:
+      redis-net:
+        aliases:
+          - redis-sentinel-2
+
+  redis-sentinel-3:
+    image: redis:6.0-alpine
+    container_name: redis-sentinel-3
+    command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
+    volumes:
+      - ./redis-sentinel-3:/etc/redis/sentinel.conf
+    networks:
+      redis-net:
+        aliases:
+          - redis-sentinel-3
+
+networks:
+  redis-net:
+    driver: bridge
+
+volumes:
+  database-data:
+  mariadb-data:
+  wordpress-data:
+  database-replication-data:
+  redis-sentinel-3:
+  redis-sentinel-2:
+  redis-sentinel-1:
+  redis-node-3:
+  redis-node-2:
+  redis-node-1:
